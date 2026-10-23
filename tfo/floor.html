@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- © 2026 Factory Monitor — All rights reserved -->
+<meta name="robots" content="noindex">
+<script>window.FM_SRC = "tfo";</script>
+<script src="../api.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TFO Floor</title>
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#000; --surface:#141414; --surface-2:#1d1d1d; --line:#2a2a2a;
+    --text:#fff; --text-2:#c3c2b7; --muted:#8b8a83;
+    --run:#16a34a; --part:#eab308; --stop:#dc2626; --offline:#3f3f46;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;min-height:100%}
+  body{padding:clamp(8px,.8vw,16px);display:flex;flex-direction:column;gap:clamp(8px,.7vw,14px);min-height:100vh}
+
+  header{display:flex;align-items:center;gap:clamp(8px,1vw,20px);flex-wrap:wrap}
+  .title h1{font-size:clamp(18px,1.6vw,34px);color:#0ff;letter-spacing:.12em;line-height:1}
+  .title .sub{font-size:clamp(11px,.8vw,15px);color:var(--text-2);margin-top:4px}
+  .totals{display:flex;gap:clamp(6px,.6vw,12px);flex:1;flex-wrap:wrap}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:clamp(6px,.5vw,10px) clamp(10px,1vw,20px);min-width:clamp(90px,8vw,160px)}
+  .kpi span{display:block;font-size:clamp(11px,.8vw,16px);color:var(--muted);font-weight:700;letter-spacing:.06em}
+  .kpi b{font-size:clamp(24px,2.4vw,50px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+  .kpi small{font-size:.45em;color:var(--text-2);font-weight:600}
+  .kpi.g b{color:#4ade80} .kpi.r b{color:#f87171}
+  .clock{font-size:clamp(18px,1.8vw,38px);font-weight:900;font-variant-numeric:tabular-nums;margin-left:auto;text-align:right}
+  .clock div{font-size:clamp(11px,.8vw,15px);color:var(--text-2);font-weight:400}
+  .shiftbar{height:6px;background:#262626;border-radius:10px;overflow:hidden;margin-top:4px}
+  .shiftbar i{display:block;height:100%;background:#38bdf8}
+
+  /* ---------- machines ---------- */
+  .grid{flex:1;display:grid;grid-template-columns:repeat(var(--cols,1),1fr);gap:clamp(8px,.8vw,14px);align-content:start}
+  .mc{container-type:inline-size;background:var(--surface);border:3px solid var(--sc);border-radius:16px;padding:clamp(10px,1.2vw,22px);
+      display:flex;flex-direction:column;gap:clamp(8px,2cqi,18px)}
+  .mc.ALL-RUN{--sc:var(--run)} .mc.PARTIAL{--sc:var(--part)} .mc.STOP{--sc:var(--stop)} .mc.OFFLINE{--sc:var(--offline)}
+  .mh{display:flex;align-items:center;gap:clamp(8px,2cqi,24px);flex-wrap:wrap}
+  .mh .nm{font-size:clamp(20px,5cqi,60px);font-weight:900;line-height:1}
+  .mh .nm small{display:block;font-size:.4em;color:var(--muted);font-weight:700;margin-top:4px}
+  .badge{background:var(--sc);color:#fff;border-radius:10px;padding:.3em .7em;font-weight:900;font-size:clamp(14px,3cqi,34px);letter-spacing:.04em}
+  .mc.PARTIAL .badge{color:#000}
+  .mh .big{margin-left:auto;display:flex;gap:clamp(10px,3cqi,40px);text-align:right}
+  .mh .big span{display:block;font-size:clamp(10px,1.8cqi,18px);color:var(--muted);font-weight:700;letter-spacing:.06em}
+  .mh .big b{font-size:clamp(28px,8cqi,96px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+  .mh .big b small{font-size:.4em;color:var(--text-2)}
+  .effbar{height:clamp(6px,1.2cqi,14px);background:#262626;border-radius:10px;overflow:hidden}
+  .effbar i{display:block;height:100%;border-radius:10px}
+
+  .motors{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(6px,1.4cqi,14px)}
+  .mt{border-radius:12px;padding:clamp(6px,1.6cqi,16px);display:flex;flex-direction:column;gap:clamp(2px,.8cqi,8px);min-width:0}
+  .mt.ON{background:var(--run)} .mt.OFF{background:var(--stop)} .mt.OFFLINE{background:var(--offline);color:#d4d4d8}
+  .mt .t{display:flex;justify-content:space-between;align-items:baseline;gap:4px}
+  .mt .t b{font-size:clamp(18px,4.5cqi,54px);font-weight:900;line-height:1}
+  .mt .t span{font-size:clamp(11px,2.2cqi,24px);font-weight:900;letter-spacing:.04em}
+  .mt .e{font-size:clamp(16px,3.6cqi,44px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+  .mt .e small{font-size:.45em;opacity:.85}
+  .mt .tm{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .mt .tm div{background:rgba(0,0,0,.28);border-radius:8px;padding:clamp(2px,.6cqi,6px) clamp(4px,1cqi,10px)}
+  .mt .tm span{display:block;font-size:clamp(9px,1.5cqi,15px);font-weight:700;opacity:.85}
+  .mt .tm b{font-size:clamp(12px,2.6cqi,30px);font-weight:900;font-variant-numeric:tabular-nums}
+  .yarn{margin:8px 0 2px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;font-size:clamp(11px,2cqi,20px);color:var(--text-2)}
+  .yarn b{color:#facc15;font-size:1.25em}
+  .yarn span{color:var(--muted)}
+  .yarn span.warn{color:#f87171;font-weight:700}
+  .mt .rp{font-size:clamp(9px,1.3cqi,14px);opacity:.85;font-variant-numeric:tabular-nums}
+  .yarn.none{color:var(--muted);font-style:italic}
+  .kpi.y b{color:#facc15}
+  .mfoot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:clamp(10px,1.6cqi,16px);color:var(--muted)}
+  /* बहुत machines हों → छोटे card, motor tiles में सिर्फ़ ज़रूरी */
+  @container (max-width:560px){ .motors{grid-template-columns:repeat(2,1fr)} .mt .t b{font-size:22px} .mt .e{font-size:22px} .mt .tm b{font-size:16px} .mt .tm span{font-size:10px} }
+  .grid.single{align-content:stretch} .grid.single .mc{min-height:calc(100vh - 140px)} .grid.single .motors{flex:1;grid-auto-rows:1fr} .grid.single .mt{justify-content:space-between}
+  .grid.single .mt .e{font-size:clamp(20px,6cqi,80px)}
+  @media (max-width:760px){ .grid.single .mc{min-height:0} }
+  @media (max-width:760px){
+    header{flex-direction:column;align-items:stretch}
+    .totals{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+    .kpi{min-width:0}
+    .clock{margin-left:0;text-align:left}
+  }
+  .msg{color:var(--muted);text-align:center;padding:40px;font-size:18px}
+</style>
+</head>
+<body>
+<header>
+  <div class="title"><h1 id="company">TFO FLOOR</h1><div class="sub" id="sub">Loading…</div></div>
+  <div class="totals">
+    <div class="kpi g"><span>MOTORS ON</span><b id="kOn">–</b></div>
+    <div class="kpi r"><span>MOTORS OFF</span><b id="kOff">–</b></div>
+    <div class="kpi"><span>AVG EFF</span><b id="kEff">–</b></div>
+    <div class="kpi"><span>MACHINES</span><b id="kMc">–</b></div>
+    <div class="kpi y"><span>YARN THIS SHIFT</span><b id="kKg">–</b></div>
+  </div>
+  <div class="clock"><span id="clock">--:--:--</span><div id="shiftTxt">&nbsp;</div><div class="shiftbar"><i id="shiftBar" style="width:0"></i></div></div>
+</header>
+<div class="grid" id="grid"><div class="msg">Loading…</div></div>
+
+<script>
+const REFRESH_MS = 10000;
+const $ = id => document.getElementById(id);
+const hm = s => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0'); };
+const effCol = e => e >= 85 ? '#22c55e' : e >= 65 ? '#facc15' : '#ef4444';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tickClock = () => $('clock').textContent = new Date().toLocaleTimeString('en-IN', {hour12:false});
+tickClock(); setInterval(tickClock, 1000);
+
+function yarnLine(m){
+  const y = m.yarn || {};
+  if (!(y.rpm > 0 && y.tpm > 0 && y.den > 0))
+    return '<div class="yarn none">🧶 Yarn kg: TFO_Config में Spindle_RPM, TPM, Denier भरें</div>';
+  const pct = m.kgShift100 ? Math.min(100, m.kg * 100 / m.kgShift100) : 0;
+  return '<div class="yarn">🧶 <b>' + m.kg.toFixed(2) + ' kg</b> इस shift' +
+    '<span>' + m.kgHr.toFixed(2) + ' kg/hr अभी</span>' +
+    '<span>पूरी shift 100%: ' + m.kgShift100.toFixed(1) + ' kg</span>' +
+    '<span>' + y.tpm + ' TPM · ' + y.den + 'D×' + y.ply + '</span>' + speedTxt(m) + '</div>';
+}
+function speedTxt(m){
+  const y = m.yarn || {};
+  if (!m.measured) return '<span>set ' + y.rpm + ' rpm · ' + m.mpm + ' m/min</span>';
+  if (!m.rpmNow) return '<span>spindle speed: —</span>';
+  const d = y.rpm > 0 ? Math.round((m.rpmNow - y.rpm) * 100 / y.rpm) : 0;
+  const warn = y.rpm > 0 && Math.abs(d) > 5;
+  return '<span' + (warn ? ' class="warn"' : '') + '>spindle ' + m.rpmNow + ' rpm' + (y.rpm > 0 ? ' (set ' + y.rpm + (warn ? ', ' + (d > 0 ? '+' : '') + d + '%' : '') + ')' : '') + '</span>';
+}
+
+function render(d){
+  if (d.company) { $('company').textContent = d.company.toUpperCase() + ' · TFO'; document.title = d.company + ' TFO'; }
+  const ms = d.machines || [];
+  let on = 0, tot = 0, effSum = 0, effN = 0;
+  ms.forEach(m => { if (m.status !== 'OFFLINE') { on += m.on; tot += m.n; effSum += m.eff; effN++; } });
+  $('kOn').innerHTML = on + '<small> /' + tot + '</small>';
+  $('kOff').textContent = tot - on;
+  $('kEff').innerHTML = effN ? (effSum / effN).toFixed(1) + '<small>%</small>' : '–';
+  $('kMc').innerHTML = effN + '<small> /' + ms.length + ' online</small>';
+  const kg = ms.reduce((a, m) => a + (m.kg || 0), 0), kgh = ms.reduce((a, m) => a + (m.kgHr || 0), 0);
+  $('kKg').innerHTML = kg ? kg.toFixed(kg < 100 ? 2 : 1) + '<small> kg · ' + kgh.toFixed(1) + ' kg/hr</small>' : '–<small> (Config भरें)</small>';
+  const sn = d.shiftNow || {};
+  $('shiftTxt').textContent = (sn.name || '') + ' shift · ' + (sn.elapsedTxt || '') + ' / ' + (sn.lenTxt || '');
+  $('shiftBar').style.width = (sn.pct || 0) + '%';
+  $('sub').textContent = 'Updated ' + (d.server || '') + ' · हर 10 s';
+
+  const g = $('grid');
+  g.classList.toggle('single', ms.length === 1);
+  g.style.setProperty('--cols', ms.length <= 1 ? 1 : ms.length <= 4 ? 2 : ms.length <= 9 ? 3 : 4);
+  if (!ms.length) { g.innerHTML = '<div class="msg">अभी कोई machine नहीं — TFO_Config में T1 जोड़ें या gateway चालू करें</div>'; return; }
+  g.innerHTML = ms.map(m => {
+    const cls = m.status.replace(' ', '-');
+    const tiles = m.motors.map((x, i) => {
+      const t = x.on + x.off, e = t ? Math.round(x.on * 1000 / t) / 10 : 0;
+      const lbl = x.st === 'ON' ? 'ON' : x.st === 'OFF' ? 'OFF' : '—';
+      return '<div class="mt ' + (x.st === 'ON' || x.st === 'OFF' ? x.st : 'OFFLINE') + '">' +
+        '<div class="t"><b>M' + (i + 1) + '</b><span>' + lbl + '</span></div>' +
+        (m.measured ? '<div class="rp">' + (x.rpm ? x.rpm + ' rpm' : '&nbsp;') + (x.sp ? ' · ' + x.sp + ' sp' : ' · —') + '</div>' : '') +
+        '<div class="e">' + e.toFixed(0) + '<small>%</small></div>' +
+        '<div class="tm"><div><span>ON</span><b>' + hm(x.on) + '</b></div><div><span>OFF</span><b>' + hm(x.off) + '</b></div></div></div>';
+    }).join('');
+    const offline = m.status === 'OFFLINE';
+    return '<div class="mc ' + cls + '">' +
+      '<div class="mh"><div class="nm">' + esc(m.name) + '<small>' + esc(m.id) + (m.noData ? ' · अभी data नहीं' : '') + '</small></div>' +
+      '<div class="badge">' + esc(m.status) + '</div>' +
+      '<div class="big"><div><span>MOTORS ON</span><b>' + (offline ? '–' : m.on) + '<small>/' + m.n + '</small></b></div>' +
+      '<div><span>EFFICIENCY</span><b style="color:' + effCol(m.eff) + '">' + m.eff.toFixed(1) + '<small>%</small></b></div></div></div>' +
+      '<div class="effbar"><i style="width:' + Math.min(100, m.eff) + '%;background:' + effCol(m.eff) + '"></i></div>' +
+      yarnLine(m) +
+      '<div class="motors">' + tiles + '</div>' +
+      '<div class="mfoot"><span>Last data: ' + esc(m.updated) + '</span><span>' + esc(m.shift) + '</span><span>Signal lost: ' + m.lost + '%</span></div>' +
+      '</div>';
+  }).join('');
+}
+
+function load(){
+  google.script.run
+    .withSuccessHandler(render)
+    .withFailureHandler(e => $('sub').textContent = 'Error: ' + e.message)
+    .getDashboardData();
+}
+load();
+setInterval(load, REFRESH_MS);
+</script>
+<script>
+/* ---- App (slider) के अंदर चले तो: swipe / [ ] keys से page बदलें ---- */
+(function(){
+  if (window.top === window.self) return;
+  function send(dir){ var w = window; while (w !== window.top) { w = w.parent; try { w.postMessage({loomNav: dir}, '*'); } catch(e){} } }
+  var x0 = null, y0 = 0;
+  document.addEventListener('touchstart', function(e){ var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (x0 === null) return; var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) send(dx < 0 ? 1 : -1);
+  }, {passive:true});
+  document.addEventListener('keydown', function(e){ if (e.key === ']') send(1); if (e.key === '[') send(-1); });
+})();
+</script>
+</body>
+</html>

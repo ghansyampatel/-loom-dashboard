@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- © 2026 Factory Monitor — All rights reserved -->
+<meta name="robots" content="noindex">
+<script src="../api.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Embroidery Floor</title>
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#000; --surface:#141414; --surface-2:#1d1d1d; --line:#2a2a2a;
+    --text:#fff; --text-2:#c3c2b7; --muted:#8b8a83;
+    --run:#16a34a; --stop:#eab308; --off:#dc2626; --offline:#3f3f46;
+    --good:#22c55e; --warn:#facc15; --bad:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
+  body{padding:clamp(8px,.8vw,16px);display:flex;flex-direction:column;gap:clamp(8px,.7vw,14px)}
+
+  /* ---------- ऊपर: कुल गिनती ---------- */
+  header{display:flex;align-items:center;gap:clamp(8px,1vw,20px);flex-wrap:wrap}
+  .title h1{font-size:clamp(18px,1.6vw,34px);color:#0ff;letter-spacing:.12em;line-height:1}
+  .title .sub{font-size:clamp(11px,.8vw,15px);color:var(--text-2);margin-top:4px}
+  .totals{display:flex;gap:clamp(6px,.6vw,12px);flex:1;flex-wrap:wrap}
+  .tot{border-radius:12px;padding:clamp(6px,.5vw,10px) clamp(10px,1vw,20px);min-width:clamp(80px,7vw,150px);
+       cursor:pointer;border:3px solid transparent;user-select:none}
+  .tot.on{border-color:#fff}
+  .tot span{display:block;font-size:clamp(11px,.8vw,16px);font-weight:700;letter-spacing:.06em}
+  .tot b{font-size:clamp(26px,2.6vw,54px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+  .tot.all{background:var(--surface-2)}
+  .tot.RUN{background:var(--run)} .tot.STOP{background:var(--stop);color:#000}
+  .tot.OFF{background:var(--off)} .tot.THREAD{background:#a855f7} .tot.OFFLINE{background:var(--offline)}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:clamp(6px,.5vw,10px) clamp(10px,1vw,20px)}
+  .kpi span{display:block;font-size:clamp(11px,.8vw,16px);color:var(--muted);font-weight:700;letter-spacing:.06em}
+  .kpi b{font-size:clamp(22px,2.2vw,46px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+  .kpi small{font-size:.45em;color:var(--text-2);font-weight:600}
+  .clock{font-size:clamp(18px,1.8vw,38px);font-weight:900;font-variant-numeric:tabular-nums;margin-left:auto;text-align:right}
+  .clock div{font-size:clamp(11px,.8vw,15px);color:var(--text-2);font-weight:400}
+  .shiftbar{height:6px;background:#262626;border-radius:10px;overflow:hidden;margin-top:4px}
+  .shiftbar i{display:block;height:100%;background:#38bdf8}
+
+  /* ---------- सारे looms ---------- */
+  .grid{display:grid;grid-template-columns:repeat(var(--cols,5),1fr);grid-auto-rows:var(--rowh,auto);gap:clamp(6px,.6vw,12px)}
+  /* card के अंदर का साइज़ card के width/height से (cqmin) — TV, laptop, phone सब पर फ़िट */
+  .card{container-type:inline-size;border-radius:12px;padding:clamp(5px,.75vw,16px) clamp(7px,.9vw,18px);
+        display:flex;flex-direction:column;justify-content:space-between;gap:clamp(2px,.3vw,8px);cursor:pointer;overflow:hidden;
+        border:3px solid transparent;min-height:0}
+  .grid.fixed .card{container-type:size}
+  .card:hover{border-color:#fff}
+  .card.RUN{background:var(--run)}
+  .card.STOP{background:var(--stop);color:#000}
+  .card.OFF{background:var(--off)}
+  .card.OFFLINE{background:var(--offline);color:#d4d4d8}
+  .card.STOP.why-LONG{background:#ea580c;color:#fff}
+  .card.STOP.why-THREAD{background:#a855f7;color:#fff}
+  .card.STOP.why-LONG .c3 div,.card.STOP.why-THREAD .c3 div{background:rgba(0,0,0,.25)}
+  .kpi.why b{font-size:clamp(20px,1.8vw,38px)}
+  .kpi.why b small{font-size:.5em}
+  .kpi.why .wsub{font-size:clamp(12px,.9vw,18px);color:var(--text-2);font-weight:700;margin-top:3px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .kpi.why .wsub i{font-style:normal;color:#fff;background:rgba(255,255,255,.14);border-radius:6px;padding:0 6px;margin-left:4px}
+  .whyrow{display:contents}
+  .card[class*="why-"] .c1 .st{white-space:normal;max-width:62%;font-size:clamp(10px,7.5cqmin,26px)}
+  .c1{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+  .c1 b{font-size:clamp(18px,19cqmin,72px);font-weight:900;line-height:.95}
+  .c1 .st{font-size:clamp(10px,8cqmin,28px);font-weight:900;letter-spacing:.04em;white-space:nowrap;text-align:right;line-height:1.1}
+  .c1 .esp{display:block;font-size:clamp(9px,5.5cqmin,16px);font-weight:400;opacity:.8;letter-spacing:0}
+  .eff{font-size:clamp(24px,27cqmin,104px);font-weight:900;line-height:.95;font-variant-numeric:tabular-nums}
+  .eff small{font-size:.36em;font-weight:700;opacity:.85}
+  .c3{display:grid;grid-template-columns:1fr 1fr;gap:clamp(3px,2cqmin,8px)}
+  .c3 div{background:rgba(0,0,0,.28);border-radius:8px;padding:clamp(2px,1.6cqmin,6px) clamp(4px,3cqmin,10px)}
+  .card.STOP .c3 div{background:rgba(0,0,0,.14)}
+  .c3 span{display:block;font-size:clamp(9px,6cqmin,17px);font-weight:700;opacity:.85;line-height:1.1}
+  .c3 b{font-size:clamp(14px,14cqmin,46px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1.05}
+  .c5{display:flex;justify-content:space-between;gap:6px;font-size:clamp(9px,6cqmin,18px);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;
+       background:rgba(0,0,0,.22);border-radius:8px;padding:clamp(2px,1.2cqmin,5px) clamp(4px,3cqmin,10px)}
+  .c5 b{font-weight:900}
+  .card.STOP:not([class*="why-"]) .c5{background:rgba(0,0,0,.12)}
+  .c4{display:flex;justify-content:space-between;gap:6px;font-size:clamp(9px,6.5cqmin,19px);font-weight:700;opacity:.9;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  @media (max-width:760px){
+    header{flex-direction:column;align-items:stretch}
+    .totals{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+    .tot{min-width:0;padding:6px 8px}
+    .tot span{font-size:10px;letter-spacing:0}
+    .kpi.a{grid-column:span 2} .kpi.b{grid-column:span 3}
+    .whyrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;grid-column:span 5}
+    .kpi.why span{font-size:10px;letter-spacing:0}
+    .clock{margin-left:0;text-align:left}
+  }
+
+  /* ---------- एक loom का पूरा detail (popup) ---------- */
+  #pop{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;padding:16px;z-index:5}
+  #pop.show{display:flex}
+  .box{background:var(--surface);border:3px solid var(--sc);border-radius:16px;padding:clamp(14px,1.4vw,28px);width:min(760px,100%);max-height:100%;overflow:auto}
+  .bh{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}
+  .bh h2{font-size:clamp(26px,2.4vw,44px)}
+  .bh h2 span{font-size:.5em;color:var(--text-2);font-weight:400;margin-left:8px}
+  .bh .st{background:var(--sc);color:#000;font-weight:900;padding:.3em .9em;border-radius:30px;font-size:clamp(14px,1.2vw,22px)}
+  .bh button{font:inherit;font-size:22px;background:none;border:none;color:var(--text);cursor:pointer;padding:0 6px}
+  .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .kv div{background:var(--surface-2);border-radius:10px;padding:10px 12px}
+  .kv span{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .kv b{font-size:clamp(18px,1.5vw,28px);font-variant-numeric:tabular-nums}
+  .kv em{font-style:normal;font-size:.55em;color:var(--muted);font-weight:400}
+  .hint{font-size:12px;color:var(--muted);margin-top:12px}
+  .empty{color:var(--muted);padding:30px;text-align:center;grid-column:1/-1}
+</style>
+</head>
+<body>
+  <header>
+    <div class="title">
+      <h1 id="ttl">EMBROIDERY FLOOR</h1>
+      <div class="sub" id="upd">Loading…</div>
+    </div>
+    <div class="totals" id="totals"></div>
+    <div class="clock"><span id="clock">--:--:--</span><div id="shiftTxt"></div><div class="shiftbar"><i id="shiftBar" style="width:0%"></i></div></div>
+  </header>
+
+  <div class="grid" id="grid"><div class="empty">Loading…</div></div>
+
+  <div id="pop"><div class="box" id="box"></div></div>
+
+<script>
+const REFRESH_MS    = 15000;
+const LOOMS_PER_ESP = 4;      // ESP1 = M1–M4, ESP2 = M5–M8 … (सिर्फ़ card पर दिखाने के लिए)
+const ST_NAME = { RUN: 'RUN', STOP: 'STOP', OFF: 'OFF', OFFLINE: 'OFFLINE' };
+const ST_VAR  = { RUN: 'var(--run)', STOP: 'var(--stop)', OFF: 'var(--off)', OFFLINE: '#a1a1aa' };
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const f1 = n => (Math.round((n || 0) * 10) / 10).toFixed(1);
+function hm(s){ s = Math.round(s || 0); return Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0'); }
+function hms(s){ s = Math.round(s || 0); return hm(s) + ':' + String(s % 60).padStart(2, '0'); }
+// stitches: 1 लाख से ज़्यादा = "12.35 L", कम = "45,600"
+function fmtSt(n){ n = Math.round(n || 0); return n >= 100000 ? (n / 100000).toFixed(2) + ' L' : n.toLocaleString('en-IN'); }
+const num = id => parseInt(String(id).replace(/\D/g, ''), 10) || 0;
+const stOf = l => ST_NAME[l.status] ? l.status : 'OFFLINE';
+// रुकने का कारण (ESP32 का अंदाज़ा: कितनी देर रुकी, या thread alarm)
+const WHY = { SHORT: '⏸ SMALL STOP', THREAD: '🧵 THREAD BREAK', FRAME: '🔲 FRAME CHANGE', LONG: '⏳ LONG STOP' };
+const whyOf = l => stOf(l) === 'STOP' ? String(l.stopReason || '').split(' ')[0] : '';
+function mins(s){ s = Math.round(s || 0); return s < 3600 ? Math.floor(s / 60) + 'm' : hm(s); }
+
+let DATA = null, filter = 'ALL', openId = null;
+try { filter = localStorage.getItem('floorFilter') || 'ALL'; } catch (e) {}
+
+setInterval(() => $('clock').textContent = new Date().toLocaleTimeString('en-IN', {hour12:false}), 1000);
+
+// ---------- एक loom card ----------
+function card(l){
+  const st = stOf(l);
+  const n = num(l.id);
+  const esp = n ? 'ESP' + Math.ceil(n / LOOMS_PER_ESP) : '';
+  const why = whyOf(l);
+  const stTxt = l.noData ? 'NO DATA' : (why && WHY[why]) ? WHY[why].replace(/^\S+ /, '') : st;
+  const sub = why ? 'since ' + mins(l.stopFor) + ' · ' + esp : esp;
+  return `<div class="card ${st}${why ? ' why-' + why : ''}" data-id="${esc(l.id)}">
+    <div class="c1"><b>${esc(l.id)}</b><div class="st">${stTxt}<span class="esp">${sub}</span></div></div>
+    <div class="eff">${l.noData ? '--' : Math.round(l.eff || 0)}<small>% eff</small></div>
+    <div class="c3">
+      <div><span>ON</span><b>${hm(l.runS)}</b></div>
+      <div><span>OFF</span><b>${hm(l.stopS)}</b></div>
+    </div>
+    <div class="c4"><span>Shift ${fmtSt(l.shiftM)} st${l.target ? ' / ' + fmtSt(l.target) : ''}</span><span>${Math.round(l.rpm || 0)} spm</span></div>
+    <div class="c5"><span>TODAY 24h</span><b>${fmtSt(l.picks)} st</b></div>
+  </div>`;
+}
+
+// ---------- popup detail ----------
+function showPop(l){
+  const st = stOf(l);
+  const run = l.runS || 0, stop = l.stopS || 0;
+  const runPct = run + stop > 0 ? Math.round(run / (run + stop) * 100) : 0;
+  const ach = l.planNow > 0 ? Math.round(l.shiftM / l.planNow * 100) : 0;
+  const n = num(l.id);
+  const kv = [
+    ['Efficiency', f1(l.eff) + '<em>%</em>'],
+    ['ON (run)', hms(run) + ' <em>' + runPct + '%</em>'],
+    ['OFF (stop)', hms(stop)],
+    ['Shift stitches', fmtSt(l.shiftM) + (l.target ? ' <em>/ ' + fmtSt(l.target) + '</em>' : '')],
+    ...(l.target ? [['Plan till now', fmtSt(l.planNow) + ' <em>· ' + ach + '%</em>']] : []),
+    ['SPM', Math.round(l.rpm || 0) + ' <em>/ ' + (l.rpmMode === 'AUTO' ? 'auto ' + (l.setRpm ? Math.round(l.setRpm) : 'सीख रहा') : 'set ' + Math.round(l.setRpm || 0)) + '</em>'],
+    ['Avg SPM (running)', (l.avgSpm || 0).toLocaleString('en-IN')],
+    ...(whyOf(l) ? [['Stopped now', (WHY[whyOf(l)] || '') + ' <em>' + hms(l.stopFor) + '</em>']] : []),
+    ['🔲 Frame change (shift)', (l.stops ? l.stops.frame[0] : 0) + ' times <em>' + hms(l.stops ? l.stops.frame[1] : 0) + '</em>'],
+    ['⏳ Long stop (shift)', (l.stops ? l.stops.long[0] : 0) + ' times <em>' + hms(l.stops ? l.stops.long[1] : 0) + '</em>'],
+    ['🧵 Thread break (alarm)', (l.stops ? l.stops.thread[0] : 0) + ' times <em>' + hms(l.stops ? l.stops.thread[1] : 0) + '</em>'],
+    ['⏸ Small stop (shift)', (l.stops ? l.stops.small[0] : 0) + ' times <em>' + hms(l.stops ? l.stops.small[1] : 0) + '</em>'],
+    ['Today (24h) stitches', fmtSt(l.picks)],
+    ['WiFi', (esc(l.rssi) || '-') + ' <em>dBm</em>'],
+    ['Updated', esc(l.updated)],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  const why = whyOf(l);
+  $('box').style.setProperty('--sc', why === 'LONG' ? '#ea580c' : why === 'THREAD' ? '#a855f7' : ST_VAR[st]);
+  $('box').innerHTML = `<div class="bh"><h2>${esc(l.id)}<span>${esc(l.name)}${n ? ' · ESP' + Math.ceil(n / LOOMS_PER_ESP) : ''}</span></h2>
+      <div style="display:flex;align-items:center;gap:10px"><div class="st">${l.noData ? 'NO DATA' : (why && WHY[why]) ? WHY[why] : st}</div><button id="x" aria-label="close">✕</button></div></div>
+    <div class="kv">${kv}</div>
+    <div class="hint">Stop reason (auto): under ${DATA && DATA.frameMin || 2} min = Small stop · ${DATA && DATA.frameMin || 2}–${DATA && DATA.longMin || 20} min = Frame change (estimated) · ${DATA && DATA.longMin || 20} min or more = Long stop · alarm = Thread break<br>
+    Close: ✕, Esc or tap outside · ← → next machine</div>`;
+  $('pop').classList.add('show');
+  openId = l.id;
+}
+function closePop(){ $('pop').classList.remove('show'); openId = null; }
+
+// ---------- 20 cards एक ही screen पर फ़िट करना ----------
+function fit(count){
+  const w = window.innerWidth, h = window.innerHeight;
+  let cols = w >= 1250 ? 5 : w >= 1000 ? 4 : w >= 700 ? 3 : 2;
+  if (count && count < cols) cols = count;
+  const rows = Math.max(1, Math.ceil(count / cols));
+  const g = $('grid');
+  g.style.setProperty('--cols', cols);
+  if (w >= 1000 && w > h) {                         // TV / laptop: सब एक screen में
+    const top = g.getBoundingClientRect().top + window.scrollY;
+    const gap = parseFloat(getComputedStyle(g).rowGap) || 10;
+    const avail = h - top - 12 - gap * (rows - 1);
+    g.style.setProperty('--rowh', Math.max(130, Math.floor(avail / rows)) + 'px');
+    g.classList.add('fixed');
+  } else {
+    g.style.setProperty('--rowh', 'auto');
+    g.classList.remove('fixed');
+  }
+}
+
+function render(d){
+  if (d) DATA = d;
+  d = DATA;
+  if (!d) return;
+  if (d.company) $('ttl').textContent = d.company.toUpperCase() + ' · FLOOR';
+  $('upd').textContent = 'Updated ' + d.server + ' · every 15 s';
+  const s = d.shiftNow || {};
+  $('shiftTxt').textContent = (s.name || '') + ' shift ' + (s.elapsedTxt || '') + ' / ' + (s.lenTxt || '');
+  $('shiftBar').style.width = (s.pct || 0) + '%';
+
+  const L = (d.looms || []).slice().sort((a, b) => num(a.id) - num(b.id) || String(a.id).localeCompare(String(b.id)));
+  const cnt = { RUN: 0, STOP: 0, OFF: 0, OFFLINE: 0 };
+  L.forEach(l => cnt[stOf(l)]++);
+  const live = L.filter(l => stOf(l) !== 'OFFLINE');
+  const avgEff = live.length ? live.reduce((a, l) => a + (l.eff || 0), 0) / live.length : 0;
+  const meters = L.reduce((a, l) => a + (l.shiftM || 0), 0);
+  const plan = L.reduce((a, l) => a + (l.noData ? 0 : (l.planNow || 0)), 0);
+  const sum = k => L.reduce((a, l) => [a[0] + (l.stops ? l.stops[k][0] : 0), a[1] + (l.stops ? l.stops[k][1] : 0)], [0, 0]);
+  const fr = sum('frame'), rp = sum('long');
+  const nowWhy = k => L.filter(l => whyOf(l) === k).length;
+
+  const chip = (k, label, v) => `<div class="tot ${k === 'ALL' ? 'all' : k} ${filter === k ? 'on' : ''}" data-f="${k}"><span>${label}</span><b>${v}</b></div>`;
+  $('totals').innerHTML =
+    chip('ALL', 'TOTAL', L.length) + chip('RUN', 'ON / RUN', cnt.RUN) + chip('STOP', 'STOP', cnt.STOP) +
+    chip('THREAD', '🧵 THREAD BREAK', L.filter(l => whyOf(l) === 'THREAD').length) + chip('OFFLINE', 'OFFLINE', cnt.OFFLINE) +
+    `<div class="kpi a"><span>AVG EFF</span><b>${f1(avgEff)}<small>%</small></b></div>` +
+    `<div class="kpi b"><span>SHIFT ST · TODAY ${fmtSt(L.reduce((a, l) => a + (l.picks || 0), 0))}</span><b>${fmtSt(meters)}${plan > 0 ? `<small> / plan ${fmtSt(plan)}</small>` : ''}</b></div>` +
+    `<div class="whyrow">` +
+    `<div class="kpi why"><span>🔲 FRAME CHANGE</span><b>${fr[0]}<small> times</small></b><div class="wsub">${hm(fr[1])} h${nowWhy('FRAME') ? '<i>now ' + nowWhy('FRAME') + '</i>' : ''}</div></div>` +
+    `<div class="kpi why"><span>⏳ LONG STOP</span><b>${rp[0]}<small> times</small></b><div class="wsub">${hm(rp[1])} h${nowWhy('LONG') ? '<i>now ' + nowWhy('LONG') + '</i>' : ''}</div></div>` +
+    `</div>`;
+
+  const show = filter === 'ALL' ? L : filter === 'THREAD' ? L.filter(l => whyOf(l) === 'THREAD') : L.filter(l => stOf(l) === filter);
+  $('grid').innerHTML = show.length ? show.map(card).join('') : '<div class="empty">इस status में कोई machine नहीं</div>';
+  fit(show.length);
+
+  if (openId) { const l = L.find(x => x.id === openId); l ? showPop(l) : closePop(); }
+}
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  const f = t.closest('[data-f]');
+  if (f) { filter = f.dataset.f === filter ? 'ALL' : f.dataset.f; try { localStorage.setItem('floorFilter', filter); } catch (x) {} render(); return; }
+  if (t.id === 'x' || t.id === 'pop') { closePop(); return; }
+  const c = t.closest('.card');
+  if (c && DATA) showPop(DATA.looms.find(l => l.id === c.dataset.id));
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') return closePop();
+  if (!openId || !DATA) return;
+  const ids = DATA.looms.map(l => l.id).sort((a, b) => num(a) - num(b));
+  const i = ids.indexOf(openId);
+  if (e.key === 'ArrowRight') showPop(DATA.looms.find(l => l.id === ids[(i + 1) % ids.length]));
+  if (e.key === 'ArrowLeft')  showPop(DATA.looms.find(l => l.id === ids[(i - 1 + ids.length) % ids.length]));
+});
+window.addEventListener('resize', () => DATA && fit($('grid').children.length));
+
+function load(){
+  google.script.run
+    .withSuccessHandler(render)
+    .withFailureHandler(e => $('upd').textContent = 'Error: ' + e.message)
+    .getDashboardData();
+}
+load();
+setInterval(load, REFRESH_MS);
+// tab / app वापस खुलते ही तुरंत ताज़ा data (background में browser refresh धीमा कर देता है)
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+window.addEventListener('focus', load);
+// 1 मिनट से पुराना data हो तो ऊपर लाल चेतावनी
+let lastOk = Date.now();
+const _render = render;
+render = function(d){ if (d) { lastOk = Date.now(); $('upd').style.color = ''; } return _render(d); };
+setInterval(() => {
+  const age = Math.round((Date.now() - lastOk) / 1000);
+  if (age > 60) { $('upd').style.color = '#ef4444'; $('upd').textContent = '⚠ Data ' + Math.floor(age / 60) + ' min old — refreshing…'; load(); }
+}, 20000);
+</script>
+<script>
+/* ---- App (slider) के अंदर चले तो: swipe / [ ] keys से page बदलें. अकेले खोलने पर कुछ नहीं करता ---- */
+(function(){
+  if (window.top === window.self) return;
+  function send(dir){ var w = window; while (w !== window.top) { w = w.parent; try { w.postMessage({loomNav: dir}, '*'); } catch(e){} } }
+  function hScroll(el){ for (; el && el !== document.body; el = el.parentElement) {
+      var o = getComputedStyle(el).overflowX; if ((o === 'auto' || o === 'scroll') && el.scrollWidth > el.clientWidth + 2) return true; } return false; }
+  var x0 = null, y0 = 0, skip = false;
+  document.addEventListener('touchstart', function(e){ var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; skip = hScroll(e.target); }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (x0 === null || skip) return; var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) send(dx < 0 ? 1 : -1);
+  }, {passive:true});
+  document.addEventListener('keydown', function(e){
+    if (e.key === ']' || e.key === 'PageDown') send(1);
+    if (e.key === '[' || e.key === 'PageUp')   send(-1);
+  });
+})();
+</script>
+</body>
+</html>

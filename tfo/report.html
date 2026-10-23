@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- © 2026 Factory Monitor — All rights reserved -->
+<meta name="robots" content="noindex">
+<script>window.FM_SRC = "tfo";</script>
+<script src="../api.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TFO Report</title>
+<style>
+  :root{ color-scheme: dark; --bg:#000; --surface:#141414; --line:#2a2a2a; --text:#fff; --text-2:#c3c2b7; --muted:#8b8a83; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
+  body{padding:clamp(8px,.8vw,16px);display:flex;flex-direction:column;gap:14px}
+  h1{font-size:clamp(18px,1.6vw,32px);color:#0ff;letter-spacing:.1em}
+  .sub{color:var(--text-2);font-size:13px;margin-top:4px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:900px){ .row{grid-template-columns:1fr} }
+  section{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+  h2{font-size:15px;color:var(--muted);letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  select{background:#222;color:#fff;border:1px solid #444;border-radius:8px;padding:6px 10px;font-size:14px}
+  .bars{display:flex;flex-direction:column;gap:8px}
+  .bar{display:grid;grid-template-columns:42px 1fr 64px auto;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+  .bar b{font-size:16px}
+  .bar .tr{height:22px;background:#262626;border-radius:6px;overflow:hidden}
+  .bar .tr i{display:block;height:100%}
+  .bar .v{font-weight:900;text-align:right}
+  .bar .s{font-size:12px;color:var(--text-2);white-space:nowrap}
+  .tw{overflow:auto;max-height:60vh}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{position:sticky;top:0;background:#1d1d1d;color:var(--muted);font-weight:700}
+  .ev-OFFLINE,.ev-MOTOR{color:#f87171} .ev-ONLINE{color:#4ade80} .ev-SHIFT{color:#38bdf8}
+  .muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<div><h1 id="company">TFO REPORT</h1><div class="sub" id="sub">Loading…</div></div>
+
+<div class="row">
+  <section>
+    <h2>इस SHIFT में हर MOTOR <select id="mcSel"></select></h2>
+    <div class="bars" id="bars"></div>
+  </section>
+  <section>
+    <h2>SHIFT SUMMARY (पिछली shifts)</h2>
+    <div class="tw"><table id="sum"></table></div>
+  </section>
+</div>
+<section>
+  <h2>EVENT LOG <span class="muted" style="font-weight:400;letter-spacing:0">— motor 1 min से ज़्यादा बंद रहा, machine offline / online, shift end</span></h2>
+  <div class="tw"><table id="ev"></table></div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const hm = s => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 3600) + 'h ' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + 'm'; };
+const effCol = e => e >= 85 ? '#22c55e' : e >= 65 ? '#facc15' : '#ef4444';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let D = null, sel = '';
+try { sel = localStorage.getItem('tfoSel') || ''; } catch (e) {}
+
+function drawBars(){
+  const ms = D.machines || [];
+  const m = ms.find(x => x.id === sel) || ms[0];
+  if (!m) { $('bars').innerHTML = '<div class="muted">कोई machine नहीं</div>'; return; }
+  $('bars').innerHTML = m.motors.map((x, i) => {
+    const t = x.on + x.off, e = t ? Math.round(x.on * 1000 / t) / 10 : 0;
+    return '<div class="bar"><b>M' + (i + 1) + '</b><div class="tr"><i style="width:' + e + '%;background:' + effCol(e) + '"></i></div>' +
+      '<div class="v">' + e.toFixed(1) + '%</div><div class="s">ON ' + hm(x.on) + ' · OFF ' + hm(x.off) + '</div></div>';
+  }).join('') + '<div class="bar" style="margin-top:6px"><b>ALL</b><div class="tr"><i style="width:' + m.eff + '%;background:' + effCol(m.eff) + '"></i></div><div class="v">' + m.eff.toFixed(1) + '%</div><div class="s">' + esc(m.status) + '</div></div>';
+}
+
+function table(el, head, rows, cls){
+  el.innerHTML = '<tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr>' +
+    (rows.length ? rows.map(r => '<tr' + (cls ? ' class="' + cls(r) + '"' : '') + '>' + r.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>').join('')
+                 : '<tr><td colspan="' + head.length + '" class="muted">अभी कुछ नहीं</td></tr>');
+}
+
+function render(d){
+  D = d;
+  if (d.company) $('company').textContent = d.company.toUpperCase() + ' · TFO REPORT';
+  $('sub').textContent = 'Updated ' + (d.server || '');
+  const ms = d.machines || [];
+  if (!ms.find(x => x.id === sel) && ms.length) sel = ms[0].id;
+  $('mcSel').innerHTML = ms.map(m => '<option value="' + esc(m.id) + '"' + (m.id === sel ? ' selected' : '') + '>' + esc(m.name) + ' (' + esc(m.id) + ')</option>').join('');
+  $('mcSel').style.display = ms.length > 1 ? '' : 'none';
+  drawBars();
+  // Shift_Summary: Date, Shift, ID, Name, Eff, ON, OFF, M1%..M8%
+  table($('sum'), ['Date', 'Shift', 'Machine', 'Eff %', 'ON', 'OFF', 'Yarn kg', 'kg @100%', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8'],
+        (d.summary || []).map(r => [r[0], r[1], r[3] || r[2], r[4], r[5], r[6], r[15] || '', r[16] || ''].concat(r.slice(7, 15))));
+  table($('ev'), ['Date', 'Time', 'Machine', 'Event', 'Detail'], (d.events || []).map(r => r.slice(0, 5)),
+        r => 'ev-' + String(r[3]).split(' ')[0]);
+}
+$('mcSel').onchange = e => { sel = e.target.value; try { localStorage.setItem('tfoSel', sel); } catch (x) {} drawBars(); };
+
+function load(){
+  google.script.run.withSuccessHandler(render).withFailureHandler(e => $('sub').textContent = 'Error: ' + e.message).getDashboardData();
+}
+load();
+setInterval(load, 30000);
+</script>
+<script>
+(function(){
+  if (window.top === window.self) return;
+  function send(dir){ var w = window; while (w !== window.top) { w = w.parent; try { w.postMessage({loomNav: dir}, '*'); } catch(e){} } }
+  function hScroll(el){ for (; el && el !== document.body; el = el.parentElement) {
+      var o = getComputedStyle(el).overflowX; if ((o === 'auto' || o === 'scroll') && el.scrollWidth > el.clientWidth + 2) return true; } return false; }
+  var x0 = null, y0 = 0, skip = false;
+  document.addEventListener('touchstart', function(e){ var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; skip = hScroll(e.target); }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (x0 === null || skip) return; var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) send(dx < 0 ? 1 : -1);
+  }, {passive:true});
+  document.addEventListener('keydown', function(e){ if (e.key === ']') send(1); if (e.key === '[') send(-1); });
+})();
+</script>
+</body>
+</html>

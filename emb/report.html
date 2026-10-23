@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- © 2026 Factory Monitor — All rights reserved -->
+<meta name="robots" content="noindex">
+<script src="../api.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Embroidery Monitor</title>
+<style>
+  :root{
+    --bg:#0e1014; --card:#161a21; --sub:#0f1218; --line:#252b36;
+    --text:#e7e9ee; --mut:#8b93a5;
+    --run:#22c55e; --stop:#f59e0b; --off:#ef4444; --offline:#64748b;
+    --acc:#38bdf8; --beam:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:2;background:var(--bg);
+         display:flex;justify-content:space-between;align-items:center;
+         padding:12px 16px;border-bottom:1px solid var(--line)}
+  h1{font-size:18px;margin:0;letter-spacing:.02em}
+  .mut{color:var(--mut);font-size:12px}
+  main{padding:16px;max-width:1150px;margin:0 auto}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px}
+  .stat b{font-size:20px;font-variant-numeric:tabular-nums;margin-right:6px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--offline);
+        border-radius:12px;padding:14px}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .badge{font-weight:700;font-size:12px;padding:3px 10px;border-radius:99px;letter-spacing:.04em}
+  .big{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  .big small{font-size:14px;color:var(--mut);font-weight:500}
+  .bar{height:8px;background:var(--sub);border-radius:99px;overflow:hidden;margin:6px 0 12px}
+  .bar i{display:block;height:100%;background:var(--acc);transition:width .5s}
+  .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .kv div{background:var(--sub);border-radius:8px;padding:7px 9px}
+  .kv b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+  h2{font-size:12px;color:var(--mut);margin:24px 0 8px;text-transform:uppercase;letter-spacing:.08em}
+  .tw{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-weight:600;background:var(--sub)}
+  tr:last-child td{border-bottom:none}
+  .ev-RUN{color:var(--run)} .ev-STOP{color:var(--stop)} .ev-POWER{color:var(--off)} .ev-FRAME{color:#38bdf8} .ev-LONG{color:#fb923c} .ev-THREAD{color:#c084fc} .ev-SHORT{color:var(--muted)}
+  .empty{padding:14px;color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <div><h1 id="ttl">🪡 Embroidery Monitor</h1><div class="mut" id="srv">Loading…</div></div>
+  <div class="mut" id="cd"></div>
+</header>
+
+<main>
+  <div class="stats" id="stats"></div>
+  <div class="grid" id="looms"><div class="empty">Loading…</div></div>
+
+  <h2>Recent Events</h2>
+  <div class="tw"><table id="ev"></table></div>
+
+  <h2>Shift Summary</h2>
+  <div class="tw"><table id="sm"></table></div>
+</main>
+
+<script>
+const REFRESH = 15;
+let left = REFRESH;
+const COL = {RUN:'var(--run)', STOP:'var(--stop)', OFF:'var(--off)', OFFLINE:'var(--offline)'};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct = (a, b) => b > 0 ? Math.min(100, a * 100 / b) : 0;
+function hm(s){ s = Math.round(s || 0); const h = Math.floor(s/3600), m = Math.floor(s%3600/60);
+  return h + 'h ' + String(m).padStart(2,'0') + 'm'; }
+function fmtSt(n){ n = Math.round(n || 0); return n >= 100000 ? (n / 100000).toFixed(2) + ' L' : n.toLocaleString('en-IN'); }
+function ago(s){ return s < 60 ? s + 's' : s < 3600 ? Math.floor(s/60) + 'm' : Math.floor(s/3600) + 'h'; }
+
+function card(l){
+  const col = COL[l.status] || 'var(--offline)';
+  return `<div class="card" style="border-left-color:${col}">
+    <div class="top">
+      <div><b>${esc(l.id)}</b> <span class="mut">${esc(l.name)}</span></div>
+      <span class="badge" style="background:color-mix(in srgb, ${col} 18%, transparent);color:${col}">${esc(l.status)}</span>
+    </div>
+    <div class="mut" style="margin-top:10px">Shift stitches · ${esc(l.shift)}</div>
+    <div class="big">${fmtSt(l.shiftM)}${l.target ? ` <small>/ ${fmtSt(l.target)}</small>` : ''}</div>
+    ${l.target ? `<div class="bar"><i style="width:${pct(l.shiftM, l.target)}%"></i></div>` : ''}
+    <div class="kv">
+      <div><span class="mut">Efficiency</span><b>${l.eff.toFixed(1)}%</b></div>
+      <div><span class="mut">SPM</span><b>${l.rpm}<span class="mut"> /${l.rpmMode === 'AUTO' ? 'auto ' : ''}${l.setRpm}</span></b></div>
+      <div><span class="mut">Avg SPM</span><b>${(l.avgSpm || 0).toLocaleString('en-IN')}</b></div>
+      <div><span class="mut">Run</span><b>${hm(l.runS)}</b></div>
+      <div><span class="mut">Stop</span><b>${hm(l.stopS)}</b></div>
+      <div><span class="mut">Today (24h)</span><b>${fmtSt(l.picks)}</b></div>
+      <div><span class="mut">🔲 Frame change</span><b>${l.stops ? l.stops.frame[0] : 0} <span class="mut">· ${hm(l.stops ? l.stops.frame[1] : 0)}</span></b></div>
+      <div><span class="mut">⏳ Long stop</span><b>${l.stops ? l.stops.long[0] : 0} <span class="mut">· ${hm(l.stops ? l.stops.long[1] : 0)}</span></b></div>
+      <div><span class="mut">🧵 Thread break</span><b>${l.stops ? l.stops.thread[0] : 0} <span class="mut">· ${hm(l.stops ? l.stops.thread[1] : 0)}</span></b></div>
+    </div>
+    ${l.status === 'STOP' && l.stopReason ? `<div style="margin-top:8px;font-weight:700">Stopped now: ${esc(l.stopReason)} · ${hm(l.stopFor)}</div>` : ''}
+    <div class="mut" style="margin-top:10px">Updated ${esc(l.updated)} (${ago(l.age)} ago) · WiFi ${esc(l.rssi)} dBm</div>
+  </div>`;
+}
+
+function table(el, head, rows, rowFn){
+  if (!rows.length){ el.innerHTML = '<tr><td class="empty">Abhi koi data nahi</td></tr>'; return; }
+  el.innerHTML = '<tr>' + head.map(h => `<th>${h}</th>`).join('') + '</tr>' +
+    rows.map(rowFn || (r => '<tr>' + r.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>')).join('');
+}
+
+function render(d){
+  if (d.company) $('ttl').textContent = '🪡 ' + d.company;
+  $('srv').textContent = 'Server time: ' + d.server;
+  const L = d.looms;
+  const count = s => L.filter(l => l.status === s).length;
+  const totM = L.reduce((a, l) => a + l.shiftM, 0);
+  const avgE = L.length ? L.reduce((a, l) => a + l.eff, 0) / L.length : 0;
+  $('stats').innerHTML = `
+    <div class="stat"><b style="color:var(--run)">${count('RUN')}</b><span class="mut">Running</span></div>
+    <div class="stat"><b style="color:var(--stop)">${count('STOP') + count('OFF')}</b><span class="mut">Stopped</span></div>
+    <div class="stat"><b style="color:var(--offline)">${count('OFFLINE')}</b><span class="mut">Offline</span></div>
+    <div class="stat"><b>${fmtSt(totM)}</b><span class="mut">Shift stitches</span></div>
+    <div class="stat"><b>${avgE.toFixed(1)}%</b><span class="mut">Avg Eff</span></div>`;
+
+  $('looms').innerHTML = L.length ? L.map(card).join('')
+    : '<div class="empty">कोई machine data नहीं। ESP32 का upload जाँचें।</div>';
+
+  table($('ev'), ['Date','Time','Machine','Event','Detail'], (d.events || []).slice(0, 30), r =>
+    `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td>
+     <td class="ev-${esc(String(r[3]).split(' ')[0])}"><b>${esc(r[3])}</b></td><td>${esc(r[4])}</td></tr>`);
+
+  // Shift Summary: Sheet के कॉलम जैसे ही (Part_IDs छोड़कर)
+  const SH_NAMES = { Machine_ID: 'Machine', Shift_Stitches: 'Stitches', Efficiency: 'Eff %', Run_Time: 'Run', Stop_Time: 'Stop', Avg_SPM: 'Avg SPM',
+    Frame_Count: '🔲 Frame change', Frame_Time: 'Frame time', Long_Stop_Count: '⏳ Long stop', Long_Stop_Time: 'Long time',
+    Thread_Count: '🧵 Thread break', Thread_Time: 'Thread time', Small_Stop_Count: '⏸ Small stop', Small_Stop_Time: 'Small time' };
+  const sHead = (d.summaryHead || []).filter(h => h !== 'Part_IDs');
+  table($('sm'), sHead.map(h => SH_NAMES[h] || h.replace(/_/g, ' ')), (d.summary || []).slice(0, 20).map(r => r.slice(0, sHead.length)));
+}
+
+function load(){
+  google.script.run
+    .withSuccessHandler(render)
+    .withFailureHandler(e => $('srv').textContent = 'Error: ' + e.message)
+    .getDashboardData();
+}
+
+setInterval(() => {
+  if (--left <= 0){ left = REFRESH; load(); }
+  $('cd').textContent = '↻ ' + left + 's';
+}, 1000);
+load();
+</script>
+<script>
+/* ---- App (slider) के अंदर चले तो: swipe / [ ] keys से page बदलें. अकेले खोलने पर कुछ नहीं करता ---- */
+(function(){
+  if (window.top === window.self) return;
+  function send(dir){ var w = window; while (w !== window.top) { w = w.parent; try { w.postMessage({loomNav: dir}, '*'); } catch(e){} } }
+  function hScroll(el){ for (; el && el !== document.body; el = el.parentElement) {
+      var o = getComputedStyle(el).overflowX; if ((o === 'auto' || o === 'scroll') && el.scrollWidth > el.clientWidth + 2) return true; } return false; }
+  var x0 = null, y0 = 0, skip = false;
+  document.addEventListener('touchstart', function(e){ var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; skip = hScroll(e.target); }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (x0 === null || skip) return; var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) send(dx < 0 ? 1 : -1);
+  }, {passive:true});
+  document.addEventListener('keydown', function(e){
+    if (e.key === ']' || e.key === 'PageDown') send(1);
+    if (e.key === '[' || e.key === 'PageUp')   send(-1);
+  });
+})();
+</script>
+</body>
+</html>

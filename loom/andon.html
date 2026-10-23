@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- © 2026 Factory Monitor — All rights reserved -->
+<meta name="robots" content="noindex">
+<script src="../api.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loom Andon</title>
+<style>
+  :root{
+    --bg:#000; --card:#0d0d0d; --sub:#1a1a1a; --line:#262626;
+    --text:#fff; --mut:#9ca3af;
+    --ok:#22c55e; --warn:#facc15; --bad:#ef4444; --off:#6b7280; --acc:#38bdf8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;min-height:100%}
+  body{padding:clamp(8px,1.2vw,24px);display:flex;flex-direction:column;gap:clamp(8px,1vw,20px)}
+
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font-size:clamp(20px,2.4vw,56px);color:#0ff;letter-spacing:.15em}
+  .right{display:flex;align-items:center;gap:clamp(10px,1.4vw,30px);flex-wrap:wrap}
+  .clock{font-size:clamp(20px,2.4vw,56px);font-weight:900;font-variant-numeric:tabular-nums}
+  .sub{font-size:clamp(12px,1.1vw,24px);color:var(--mut)}
+
+  .mode{display:flex;gap:6px;align-items:center}
+  .mode span{font-size:clamp(11px,.9vw,20px);color:var(--mut);margin-right:2px}
+  .mode button{background:#111;color:#ff0;border:2px solid #ff0;border-radius:8px;
+               padding:.25em .8em;font-weight:900;font-size:clamp(12px,1vw,22px);cursor:pointer}
+  .mode button.on{background:#ff0;color:#000}
+
+  .shift{display:flex;align-items:center;gap:12px}
+  .shift .sub{white-space:nowrap}
+  .shiftbar{flex:1;height:clamp(8px,.8vw,16px);background:var(--sub);border-radius:20px;overflow:hidden}
+  .shiftbar i{display:block;height:100%;background:var(--acc);transition:width .5s}
+
+  .totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:clamp(8px,1vw,20px)}
+  .tot{background:var(--card);border:2px solid var(--line);border-radius:12px;padding:clamp(6px,.8vw,16px);text-align:center}
+  .tot b{display:block;font-size:clamp(26px,3.4vw,80px);font-variant-numeric:tabular-nums;line-height:1.1}
+  .tot span{font-size:clamp(11px,1vw,22px);color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:clamp(11px,.9vw,20px);color:var(--mut)}
+  .legend i{display:inline-block;width:.9em;height:.9em;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(260px,22vw,520px),1fr));gap:clamp(10px,1.2vw,24px)}
+
+  /* रंग से भरा card (पुराने Machine Monitor app जैसा) */
+  .tile{border-radius:14px;padding:clamp(10px,1vw,22px);color:#fff;
+        border:3px solid #000;text-shadow:0 1px 2px rgba(0,0,0,.55);transition:background .4s}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .id{font-size:clamp(28px,3vw,72px);font-weight:900;line-height:1}
+  .name{font-size:clamp(11px,.9vw,20px);color:rgba(255,255,255,.85)}
+  .st{font-size:clamp(13px,1.3vw,30px);font-weight:900;padding:.2em .8em;border-radius:40px;
+      background:rgba(0,0,0,.75);text-shadow:0 0 6px currentColor}
+
+  .nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:clamp(8px,.8vw,18px) 0;text-align:center}
+  .nums span{display:block;font-size:clamp(10px,.9vw,20px);color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.05em}
+  .nums b{font-size:clamp(22px,2.6vw,64px);font-variant-numeric:tabular-nums;line-height:1.15}
+
+  .bar{position:relative;height:clamp(12px,1.4vw,30px);background:rgba(0,0,0,.4);border-radius:20px}
+  .bar i{display:block;height:100%;border-radius:20px;background:rgba(255,255,255,.92);transition:width .5s}
+  .bar em{position:absolute;top:-4px;bottom:-4px;width:4px;background:#000;border-radius:2px;box-shadow:0 0 0 1px #fff}
+
+  .foot{display:flex;justify-content:space-between;align-items:baseline;margin-top:clamp(6px,.6vw,14px);
+        font-size:clamp(12px,1.2vw,28px);color:rgba(255,255,255,.9)}
+  .gap{font-weight:900;font-size:clamp(16px,1.6vw,38px);color:#fff}
+  .pill{background:rgba(0,0,0,.6);border-radius:8px;padding:.1em .5em}
+  @keyframes blink{50%{opacity:.35}}
+  .blink{animation:blink 1s infinite}
+  .empty{color:var(--mut);padding:30px;text-align:center;font-size:clamp(14px,1.4vw,30px)}
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>LOOM ANDON</h1>
+      <div class="sub" id="upd">Loading…</div>
+    </div>
+    <div class="right">
+      <div class="mode">
+        <span>Card रंग:</span>
+        <button data-m="eff"    onclick="setMode('eff')">Efficiency</button>
+        <button data-m="status" onclick="setMode('status')">Status</button>
+        <button data-m="plan"   onclick="setMode('plan')">Plan %</button>
+      </div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <div class="shift">
+    <div class="sub" id="shiftTxt">Shift</div>
+    <div class="shiftbar"><i id="shiftBar" style="width:0%"></i></div>
+  </div>
+
+  <div class="totals" id="totals"></div>
+  <div class="legend" id="legend"></div>
+  <div class="grid" id="grid"><div class="empty">Loading…</div></div>
+
+<script>
+const REFRESH_MS = 15000;
+const DEFAULT_MODE = 'eff';          // 'eff' | 'status' | 'plan'
+
+// Card का background (gradient, पुराने app जैसा)
+const BG = {
+  ok:   'linear-gradient(180deg,#16a34a,#15803d)',
+  warn: 'linear-gradient(180deg,#ca8a04,#a16207)',
+  bad:  'linear-gradient(180deg,#dc2626,#991b1b)',
+  off:  'linear-gradient(180deg,#4b5563,#374151)'
+};
+const SOLID = {ok:'#22c55e', warn:'#facc15', bad:'#ef4444', off:'#6b7280'};
+const ST_COL = {RUN:'#22ff22', STOP:'#facc15', OFF:'#ff4444', OFFLINE:'#cccccc'};
+
+const LEGEND = {
+  eff:    [['ok','Efficiency 80%+'],['warn','50–80%'],['bad','50% से कम'],['off','Offline']],
+  status: [['ok','RUN (चल रहा)'],['warn','STOP (रुका)'],['bad','OFF (power बंद)'],['off','Offline']],
+  plan:   [['ok','Plan का 95%+'],['warn','80–95%'],['bad','80% से कम'],['off','Offline']]
+};
+
+let mode = DEFAULT_MODE;
+try { const m = localStorage.getItem('andonMode'); if (LEGEND[m]) mode = m; } catch (e) {}
+let lastData = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let QQ = {};
+const qd = k => QQ[k] ? `<em class="qdot" title="${esc(QQ[k].name)}" style="display:inline-block;width:.7em;height:.7em;border-radius:50%;background:${QQ[k].color};border:2px solid #fff;box-shadow:0 0 0 1.5px #000;vertical-align:middle;margin-left:.2em;font-style:normal"></em>` : '';
+const setQ = d => { QQ = {}; (d.qualities || []).forEach(q => QQ[q.key] = q); };
+const f1 = n => (Math.round((n || 0) * 10) / 10).toFixed(1);
+const planPct = l => (l.planNow > 0 ? l.shiftM / l.planNow * 100 : 100);
+
+function level(l){
+  if (l.status === 'OFFLINE') return 'off';
+  if (mode === 'status') return l.status === 'RUN' ? 'ok' : l.status === 'STOP' ? 'warn' : 'bad';
+  if (mode === 'eff')    return l.eff >= 80 ? 'ok' : l.eff >= 50 ? 'warn' : 'bad';
+  const p = planPct(l);
+  return p >= 95 ? 'ok' : p >= 80 ? 'warn' : 'bad';
+}
+
+function setMode(m){
+  mode = m;
+  try { localStorage.setItem('andonMode', m); } catch (e) {}
+  if (lastData) render(lastData);
+}
+
+function tick(){
+  $('clock').textContent = new Date().toLocaleTimeString('en-IN', {hour12:false});
+}
+
+function tile(l){
+  const off = l.status === 'OFFLINE';
+  const plan = l.planNow || 0;
+  const pct = planPct(l);
+  const lv = level(l);
+  const gap = l.shiftM - plan;
+  const barW = l.target > 0 ? Math.min(100, l.shiftM / l.target * 100) : 0;
+  const mark = l.target > 0 ? Math.min(100, plan / l.target * 100) : 0;
+  const stCol = ST_COL[l.status] || '#ccc';
+  const blink = (!off && lv === 'bad') ? ' blink' : '';
+  return `<div class="tile" style="background:${BG[lv]};border-color:#000;box-shadow:0 0 0 3px ${stCol},0 0 14px ${stCol}">
+    <div class="top">
+      <div><div class="id">${esc(l.id)}${qd(l.qual)}</div><div class="name">${esc(l.name)}</div></div>
+      <div class="st" style="color:${stCol}">${esc(l.status)}</div>
+    </div>
+    <div class="nums">
+      <div><span>Target</span><b>${f1(l.target)}</b></div>
+      <div><span>Plan अभी</span><b>${f1(plan)}</b></div>
+      <div><span>Actual</span><b>${f1(l.shiftM)}</b></div>
+    </div>
+    <div class="bar"><i style="width:${barW}%"></i><em style="left:calc(${mark}% - 2px)"></em></div>
+    <div class="foot">
+      <span class="gap${blink}">${gap >= 0 ? '+' : ''}${f1(gap)} m</span>
+      <span><span class="pill">Eff ${f1(l.eff)}%</span> ${off ? 'Offline' : Math.round(pct) + '% plan'}</span>
+    </div>
+  </div>`;
+}
+
+function render(d){
+  setQ(d);
+  lastData = d;
+  document.querySelectorAll('.mode button').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
+  $('legend').innerHTML = LEGEND[mode].map(([k, t]) => `<span><i style="background:${SOLID[k]}"></i>${t}</span>`).join('')
+    + '<span><i style="background:#000;box-shadow:0 0 0 1px #fff;width:4px"></i>अभी तक का Plan</span>';
+
+  $('upd').textContent = 'Updated ' + d.server + ' · हर 15 सेकंड';
+  const s = d.shiftNow || {};
+  $('shiftTxt').textContent = (s.name || '') + ' shift · ' + (s.elapsedTxt || '') + ' / ' + (s.lenTxt || '');
+  $('shiftBar').style.width = (s.pct || 0) + '%';
+
+  const L = (d.looms || []).slice().sort((a, b) =>
+    String(a.id).localeCompare(String(b.id), undefined, {numeric:true}));
+  const live = L.filter(l => l.status !== 'OFFLINE');
+  const run = L.filter(l => l.status === 'RUN').length;
+  const tgt = L.reduce((a, l) => a + (l.target || 0), 0);
+  const plan = live.reduce((a, l) => a + (l.planNow || 0), 0);
+  const act = live.reduce((a, l) => a + (l.shiftM || 0), 0);
+  const pct = plan > 0 ? act / plan * 100 : 0;
+  const col = live.length === 0 ? SOLID.off : pct >= 95 ? SOLID.ok : pct >= 80 ? SOLID.warn : SOLID.bad;
+
+  $('totals').innerHTML = `
+    <div class="tot"><b><span style="color:var(--ok);font-size:inherit">${run}</span>/${L.length}</b><span>Looms Running</span></div>
+    <div class="tot"><b>${f1(tgt)}</b><span>Shift Target m</span></div>
+    <div class="tot"><b>${f1(plan)}</b><span>Plan अभी तक m</span></div>
+    <div class="tot"><b style="color:${col}">${f1(act)}</b><span>Actual m</span></div>
+    <div class="tot"><b style="color:${col}">${Math.round(pct)}%</b><span>Achievement</span></div>`;
+
+  $('grid').innerHTML = L.length ? L.map(tile).join('')
+    : '<div class="empty">कोई loom data नहीं। ESP32 का upload check करें।</div>';
+  fitAndon();
+}
+
+// बहुत looms (जैसे 48) TV पर: पूरा grid छोटा करके एक screen में
+function fitAndon(){
+  const g = $('grid');
+  g.style.zoom = '';
+  if (innerWidth < 1000 || innerWidth <= innerHeight) return;
+  const top = g.getBoundingClientRect().top, need = g.scrollHeight, avail = innerHeight - top - 10;
+  if (need > avail) g.style.zoom = Math.max(0.4, avail / need).toFixed(3);
+}
+window.addEventListener('resize', () => lastData && fitAndon());
+
+function load(){
+  google.script.run
+    .withSuccessHandler(render)
+    .withFailureHandler(e => $('upd').textContent = 'Error: ' + e.message)
+    .getDashboardData();
+}
+
+tick(); setInterval(tick, 1000);
+load(); setInterval(load, REFRESH_MS);
+</script>
+<script>
+/* ---- App (slider) के अंदर चले तो: swipe / [ ] keys से page बदलें. अकेले खोलने पर कुछ नहीं करता ---- */
+(function(){
+  if (window.top === window.self) return;
+  function send(dir){ var w = window; while (w !== window.top) { w = w.parent; try { w.postMessage({loomNav: dir}, '*'); } catch(e){} } }
+  function hScroll(el){ for (; el && el !== document.body; el = el.parentElement) {
+      var o = getComputedStyle(el).overflowX; if ((o === 'auto' || o === 'scroll') && el.scrollWidth > el.clientWidth + 2) return true; } return false; }
+  var x0 = null, y0 = 0, skip = false;
+  document.addEventListener('touchstart', function(e){ var t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; skip = hScroll(e.target); }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (x0 === null || skip) return; var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) send(dx < 0 ? 1 : -1);
+  }, {passive:true});
+  document.addEventListener('keydown', function(e){
+    if (e.key === ']' || e.key === 'PageDown') send(1);
+    if (e.key === '[' || e.key === 'PageUp')   send(-1);
+  });
+})();
+</script>
+</body>
+</html>

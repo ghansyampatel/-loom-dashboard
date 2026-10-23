@@ -1,0 +1,10 @@
+# Netlify settings — कुछ बदलने की ज़रूरत नहीं
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+    X-Robots-Tag = "noindex, nofollow"
+    Referrer-Policy = "no-referrer"

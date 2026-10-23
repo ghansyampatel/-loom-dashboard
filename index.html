@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- © 2026 Factory Monitor — All rights reserved -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Factory Monitor</title>
+<style>html,body{margin:0;height:100%;background:#000;color:#8b8a83;font:18px Arial,sans-serif;display:flex;align-items:center;justify-content:center}</style>
+<script src="api.js"></script>
+</head>
+<body>
+<div id="w">Loading…</div>
+<script>
+// customer किस type का है (emb / loom) → उसी folder में भेजो, link वही रहे
+FM.getUrl().then(function (cu) {
+  var type = cu.type === 'loom' || cu.type === 'tfo' ? cu.type : 'emb';
+  location.replace(FM.root + type + '/' + FM.qs());
+}).catch(FM.fail);
+</script>
+</body>
+</html>

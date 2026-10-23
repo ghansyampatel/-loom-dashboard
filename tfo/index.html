@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- © 2026 Factory Monitor — All rights reserved -->
+<meta name="robots" content="noindex">
+<script>window.FM_SRC = "tfo";</script>
+<script src="../api.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Embroidery Monitor</title>
+<style>
+  :root{ color-scheme: dark; --bg:#000; --bar:#111; --line:#2a2a2a; --text:#fff; --muted:#8b8a83; --acc:#0ff; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+  body{display:flex;flex-direction:column}
+
+  /* ---------- slides ---------- */
+  .view{flex:1;position:relative;overflow:hidden}
+  .track{position:absolute;inset:0;display:flex;transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+  .slide{flex:0 0 100%;height:100%;position:relative}
+  .slide iframe{width:100%;height:100%;border:0;display:block;background:#000}
+  .slide .wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px}
+
+  /* ---------- नीचे की tab bar ---------- */
+  nav{display:flex;align-items:stretch;gap:4px;background:var(--bar);border-top:1px solid var(--line);padding:4px;
+      padding-bottom:max(4px, env(safe-area-inset-bottom))}
+  nav button{flex:1;font:inherit;background:none;border:0;color:var(--muted);cursor:pointer;border-radius:8px;
+      padding:6px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:clamp(11px,1vw,15px);font-weight:700}
+  nav button .ic{font-size:clamp(16px,1.4vw,22px);line-height:1}
+  nav button.on{color:#000;background:var(--acc)}
+  nav .tool{flex:0 0 auto;min-width:56px}
+  nav .tool.on{background:#22c55e}
+  .prog{height:3px;background:#222}
+  .prog i{display:block;height:100%;width:0;background:var(--acc)}
+  .prog i.run{transition:width linear}
+
+  /* TV पर bar छुपाने का mode */
+  body.hidebar nav, body.hidebar .prog{display:none}
+  .peek{position:fixed;right:10px;bottom:10px;display:none;z-index:3;background:rgba(0,0,0,.6);color:#fff;border:1px solid #444;
+        border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer}
+  body.hidebar .peek{display:block}
+</style>
+</head>
+<body>
+  <div class="view"><div class="track" id="track"></div></div>
+  <div class="prog"><i id="prog"></i></div>
+  <nav id="nav"></nav>
+  <button class="peek" id="peek">☰ menu</button>
+
+<script>
+// ▶ pages की list (क्रम बदल सकते हैं)
+let PAGES = [
+  { file: 'floor',   name: 'TFO',     ic: '⟳' },
+  { file: 'report',  name: 'Report',  ic: '☷' },
+];
+const AUTO_SEC = 30;                 // auto slide: हर page कितने सेकंड
+
+
+// customer link सही है? दूसरे type का है तो सही folder में; TFO link हो तो नीचे TFO tabs भी
+FM.getUrl().then(cu => {
+  if (cu.type && cu.type !== 'tfo') { location.replace(FM.root + cu.type + '/' + FM.qs()); return; }
+  if (cu.name) document.title = cu.name + ' — TFO Monitor';
+  if (cu.tfo && 'tfo' !== 'tfo')
+    PAGES = PAGES.concat([{ file: '../tfo/floor', name: 'TFO', ic: '⟳' }, { file: '../tfo/report', name: 'TFO Rep', ic: '☷' }]);
+  boot();
+}).catch(FM.fail);
+
+function boot(){
+let cur = 0, auto = false, timer = null;
+try { cur = Math.min(PAGES.length - 1, parseInt(localStorage.getItem('appPage') || '0', 10) || 0);
+      auto = localStorage.getItem('appAuto') === '1'; } catch (e) {}
+
+const track = document.getElementById('track');
+const nav = document.getElementById('nav');
+
+// slides + buttons बनाना
+PAGES.forEach((p, i) => {
+  const s = document.createElement('div');
+  s.className = 'slide';
+  s.innerHTML = '<div class="wait">Loading ' + p.name + '…</div>';
+  track.appendChild(s);
+  const b = document.createElement('button');
+  b.innerHTML = '<span class="ic">' + p.ic + '</span>' + p.name;
+  b.onclick = () => { go(i); restartAuto(); };
+  nav.appendChild(b);
+});
+const autoBtn = document.createElement('button');
+autoBtn.className = 'tool';
+autoBtn.title = 'Auto slide (TV)';
+nav.appendChild(autoBtn);
+const fsBtn = document.createElement('button');
+fsBtn.className = 'tool';
+fsBtn.innerHTML = '<span class="ic">⛶</span>Full';
+fsBtn.title = 'Full screen + menu छुपाएँ';
+nav.appendChild(fsBtn);
+
+// page पहली बार खुले तभी iframe बनाओ (उसी site की file; data ../api.js से आता है)
+const QS = FM.qs();
+function ensure(i){
+  const s = track.children[i];
+  if (!s || s.dataset.loading) return;
+  s.dataset.loading = '1';
+  const f = document.createElement('iframe');
+  f.setAttribute('allow', 'fullscreen');
+  f.src = PAGES[i].file + '.html' + QS;
+  f.onload = () => { const w = s.querySelector('.wait'); if (w) w.remove(); };
+  s.appendChild(f);
+}
+function go(i){
+  cur = (i + PAGES.length) % PAGES.length;
+  track.style.transform = 'translateX(' + (-cur * 100) + '%)';
+  [...nav.children].forEach((b, k) => { if (k < PAGES.length) b.classList.toggle('on', k === cur); });
+  ensure(cur);
+  setTimeout(() => ensure((cur + 1) % PAGES.length), 1500);
+  try { localStorage.setItem('appPage', cur); } catch (e) {}
+}
+
+// ---------- auto slide (TV के लिए) ----------
+function drawAuto(){
+  autoBtn.classList.toggle('on', auto);
+  autoBtn.innerHTML = '<span class="ic">' + (auto ? '❚❚' : '▶') + '</span>' + (auto ? AUTO_SEC + 's' : 'Auto');
+}
+function restartAuto(){
+  clearTimeout(timer);
+  const bar = document.getElementById('prog');
+  bar.classList.remove('run'); bar.style.width = '0';
+  if (!auto) return;
+  void bar.offsetWidth;
+  bar.style.transitionDuration = AUTO_SEC + 's';
+  bar.classList.add('run'); bar.style.width = '100%';
+  timer = setTimeout(() => { go(cur + 1); restartAuto(); }, AUTO_SEC * 1000);
+}
+autoBtn.onclick = () => { auto = !auto; try { localStorage.setItem('appAuto', auto ? '1' : '0'); } catch (e) {} drawAuto(); restartAuto(); };
+
+// ---------- full screen ----------
+fsBtn.onclick = () => {
+  document.body.classList.add('hidebar');
+  const el = document.documentElement;
+  if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+};
+document.getElementById('peek').onclick = () => {
+  document.body.classList.remove('hidebar');
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
+};
+
+// ---------- swipe (bar पर) + pages के अंदर से आया swipe ----------
+let x0 = null;
+nav.addEventListener('touchstart', e => x0 = e.touches[0].clientX, {passive:true});
+nav.addEventListener('touchend', e => {
+  if (x0 === null) return;
+  const dx = e.changedTouches[0].clientX - x0; x0 = null;
+  if (Math.abs(dx) > 60) { go(cur + (dx < 0 ? 1 : -1)); restartAuto(); }
+}, {passive:true});
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (d && (d.loomNav === 1 || d.loomNav === -1)) { go(cur + d.loomNav); restartAuto(); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === ']' || e.key === 'PageDown') { go(cur + 1); restartAuto(); }
+  if (e.key === '[' || e.key === 'PageUp')   { go(cur - 1); restartAuto(); }
+});
+
+track.style.transition = 'none';
+go(cur);
+requestAnimationFrame(() => track.style.transition = '');
+drawAuto();
+restartAuto();
+}
+</script>
+</body>
+</html>
