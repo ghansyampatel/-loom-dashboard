@@ -1,6 +1,4 @@
 {
-  "demo-emb":  { "name": "Demo Embroidery", "type": "emb",  "url": "PASTE_EMB_DEPLOYMENT_ID_OR_EXEC_URL",  "active": true },
-  "demo-loom": { "name": "Demo Waterjet",   "type": "loom", "url": "PASTE_LOOM_DEPLOYMENT_ID_OR_EXEC_URL", "active": true },
   "gvs":    { "name": "GVS textiles", "type": "loom",  "url": "https://script.google.com/macros/s/AKfycbwuX_GQgVODn-2w5jFHcGmJTUdAOHq3I7mIK4TBB9hQ9zKLFh1aTsCFZ8AkACnSj6v4/exec", "active": true },
   "gspatel":{ "name": "GS Patel Waterjet", "type": "loom", "url": "https://script.google.com/macros/s/AKfycbwuX_GQgVODn-2w5jFHcGmJTUdAOHq3I7mIK4TBB9hQ9zKLFh1aTsCFZ8AkACnSj6v4/exec", "active": true }
 }
