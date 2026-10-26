@@ -1,5 +1,5 @@
 {
   "gspatel": { "name": "GS Patel Waterjet", "type": "loom", "url": "https://script.google.com/macros/s/AKfycbwuX_GQgVODn-2w5jFHcGmJTUdAOHq3I7mIK4TBB9hQ9zKLFh1aTsCFZ8AkACnSj6v4/exec", "active": true },
   "gvs": { "name": "GVS_LOOM", "type": "loom", "url": "https://script.google.com/macros/s/AKfycbyl_GiTDARlTcQD6MKSxeZa_s5Nik14ksnPENOXo1dSsD0ijHBu4oNXWQu8UWsCVwxzeg/exec", "active": true },
-  "12LOOM_SETUP": { "name": "12LOOM_SETUP", "type": "loom", "url": "https://script.google.com/macros/s/AKfycbzZNMzxm5TTlvEF0Zv8PlE_h-XbQqTPRZLgGtLENJEmbW6yv7gSPulTpbc0_p-2yvju/exec", "active": true }
+  "12LOOM_SETUP": { "name": "12_LOOMS", "type": "loom", "url": "https://script.google.com/macros/s/AKfycbzZNMzxm5TTlvEF0Zv8PlE_h-XbQqTPRZLgGtLENJEmbW6yv7gSPulTpbc0_p-2yvju/exec", "active": true }
 }
